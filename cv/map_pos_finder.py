@@ -4,14 +4,14 @@ import matplotlib.pyplot as plt
 import time
 
 # x = coordinates to the right, y = coordinates down
-CROP = 0
+CROP = 30
 MAP_CROP_TOP_LEFT_X = 55 + CROP
 MAP_CROP_TOP_LEFT_Y = 55 + CROP
 MAP_CROP_WIDTH = 230 - CROP * 2
 MAP_CROP_HEIGHT = 230 - CROP * 2
 
 
-def findMapPoseSIFT(frame, refMap, plotSIFT=True):
+def findMapPoseSIFT(frame, refMap, plotMatching=True):
     # Start timer
     start = time.time()
 
@@ -24,40 +24,39 @@ def findMapPoseSIFT(frame, refMap, plotSIFT=True):
     miniMap = cv2.cvtColor(miniMap, cv2.COLOR_BGR2GRAY)
 
     # FLANN based SIFT matching
-    sift = cv2.SIFT_create()
+    feature = cv2.BRISK_create()
 
     # Find the keypoints and descriptors with SIFT
-    kp1, des1 = sift.detectAndCompute(refMap, None)
-    kp2, des2 = sift.detectAndCompute(miniMap, None)
+    kp1, des1 = feature.detectAndCompute(refMap, None)
+    kp2, des2 = feature.detectAndCompute(miniMap, None)
 
-    # FLANN parameters
-    FLANN_INDEX_KDTREE = 1
-    index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
-    search_params = dict(checks=50)  # or pass empty dictionary
-    flann = cv2.FlannBasedMatcher(index_params, search_params)
-    matches = flann.knnMatch(des1, des2, k=2)
+    # create BFMatcher object
+    bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+    # Match descriptors.
+    matches = bf.match(des1, des2)
+    # Sort them in the order of their distance.
+    matches = sorted(matches, key=lambda x: x.distance)
 
-    # Need to draw only good matches, so create a mask
-    matchesMask = [[0, 0] for i in range(len(matches))]
-
-    # Ratio test as per Lowe's paper
-    for i, (m, n) in enumerate(matches):
-        if m.distance < 0.4 * n.distance:
-            matchesMask[i] = [1, 0]
-    draw_params = dict(matchColor=(0, 255, 0),
-                       singlePointColor=(255, 0, 0),
-                       matchesMask=matchesMask,
-                       flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
-    output = cv2.drawMatchesKnn(refMap, kp1, miniMap, kp2, matches, None, **draw_params)
+    # Find pose from the matches
+    pos = findPoseFromFeatureMatches(matches)
 
     # End timer
     end = time.time()
     print(end-start)
 
     # Display SIFT matching
-    if plotSIFT:
+    if plotMatching:
+        # Draw first 10 matches.
+        output = cv2.drawMatches(refMap, kp1, miniMap, kp2, matches[:10], None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
         cv2.imshow('output', cv2.resize(output, (1000, 1000)))
         cv2.waitKey(1)
+
+
+def findPoseFromFeatureMatches(matches):
+    matches
+
+    pos = [0, 0]
+    return pos
 
 
 # def findMapPose(frame, reference):
