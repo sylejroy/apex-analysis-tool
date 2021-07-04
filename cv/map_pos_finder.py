@@ -4,14 +4,16 @@ import matplotlib.pyplot as plt
 import time
 
 # x = coordinates to the right, y = coordinates down
-CROP = 30
+CROP = 0
 MAP_CROP_TOP_LEFT_X = 55 + CROP
 MAP_CROP_TOP_LEFT_Y = 55 + CROP
 MAP_CROP_WIDTH = 230 - CROP * 2
 MAP_CROP_HEIGHT = 230 - CROP * 2
 
+SCALE_RATIO = 1.85
 
-def findMapPoseSIFT(frame, refMap, plotMatching=True):
+
+def findMapPoseSIFT(frame, refMap, plotMatching=True, printTimer=False):
     # Start timer
     start = time.time()
 
@@ -19,16 +21,15 @@ def findMapPoseSIFT(frame, refMap, plotMatching=True):
     miniMap = frame[MAP_CROP_TOP_LEFT_Y:MAP_CROP_TOP_LEFT_Y + MAP_CROP_HEIGHT,
                     MAP_CROP_TOP_LEFT_X:MAP_CROP_TOP_LEFT_X + MAP_CROP_WIDTH]
 
-    # Convert to gray scale
-    refMap = cv2.cvtColor(refMap, cv2.COLOR_BGR2GRAY)
-    miniMap = cv2.cvtColor(miniMap, cv2.COLOR_BGR2GRAY)
-
     # FLANN based SIFT matching
     feature = cv2.BRISK_create()
 
     # Find the keypoints and descriptors with SIFT
-    kp1, des1 = feature.detectAndCompute(refMap, None)
-    kp2, des2 = feature.detectAndCompute(miniMap, None)
+    img1 = cv2.cvtColor(refMap, cv2.COLOR_BGR2GRAY)
+    img2 = cv2.cvtColor(miniMap, cv2.COLOR_BGR2GRAY)
+
+    kp1, des1 = feature.detectAndCompute(img1, None)
+    kp2, des2 = feature.detectAndCompute(img2, None)
 
     # create BFMatcher object
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
@@ -38,78 +39,57 @@ def findMapPoseSIFT(frame, refMap, plotMatching=True):
     matches = sorted(matches, key=lambda x: x.distance)
 
     # Find pose from the matches
-    pos = findPoseFromFeatureMatches(matches)
+    pos = findPoseFromFeatureMatches(matches[:10], kp1, kp2)
 
     # End timer
     end = time.time()
-    print(end-start)
+    if printTimer:
+        print(end-start)
 
     # Display SIFT matching
     if plotMatching:
-        # Draw first 10 matches.
-        output = cv2.drawMatches(refMap, kp1, miniMap, kp2, matches[:10], None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+        # Draw first 10 matches
+        output = cv2.drawMatches(img1, kp1, img2, kp2, matches[:10], None,
+                                 flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
         cv2.imshow('output', cv2.resize(output, (1000, 1000)))
         cv2.waitKey(1)
 
 
-def findPoseFromFeatureMatches(matches):
-    matches
+def findPoseFromFeatureMatches(matches, kp1, kp2):
+    # img1 -> reference map
+    # img2 -> minimap on current frame
+    list_kp1 = []
+    list_kp2 = []
+    distance_array_kp1 = []
+    distance_array_kp2 = []
+    ratio = []
+    index = 0
+
+    for match in matches:
+        img1Idx = match.queryIdx
+        img2Idx = match.trainIdx
+        (x1, y1) = kp1[img1Idx].pt
+        (x2, y2) = kp2[img2Idx].pt
+        list_kp1.append((x1, y1))
+        list_kp2.append((x2 - MAP_CROP_WIDTH / 2, y2 - MAP_CROP_WIDTH / 2))
+
+    # Find scale difference
+    for idxRef, ptRef in enumerate(list_kp1):
+        for idxTest, ptTest in enumerate(list_kp1):
+            if idxRef != idxTest:
+                distance_array_kp1.append((ptRef[0] - ptTest[0]) ** 2 + (ptRef[1] - ptTest[1]) ** 2)
+
+    for idxRef, ptRef in enumerate(list_kp2):
+        for idxTest, ptTest in enumerate(list_kp2):
+            if idxRef != idxTest:
+                distance_array_kp2.append((ptRef[0] - ptTest[0]) ** 2 + (ptRef[1] - ptTest[1]) ** 2)
+                ratio.append(distance_array_kp1[index] / distance_array_kp2[index])
+                index = index + 1
+
+    scale_ratio = sum(ratio) / len(ratio)
+    scale_ratio = max(set(ratio), key=ratio.count)
+    print(scale_ratio)
+
 
     pos = [0, 0]
     return pos
-
-
-# def findMapPose(frame, reference):
-#     # Crop
-#     currentMap = frame[MAP_CROP_TOP_LEFT_Y:MAP_CROP_TOP_LEFT_Y + MAP_CROP_HEIGHT,
-#                        MAP_CROP_TOP_LEFT_X:MAP_CROP_TOP_LEFT_X + MAP_CROP_WIDTH]
-#
-#     method = cv2.TM_SQDIFF_NORMED
-#
-#     scale = np.linspace(1.0, 1.6, num=20)
-#
-#     best_score = 0
-#     best_loc = [0, 0]
-#
-#     for ratio in scale:
-#         width = int(currentMap.shape[1] * ratio)
-#         length = int(currentMap.shape[0] * ratio)
-#         dim = (width, length)
-#
-#         resizedMiniMap = cv2.resize(currentMap, dim, interpolation=cv2.INTER_NEAREST)
-#
-#         result = cv2.matchTemplate(reference, resizedMiniMap, method)
-#
-#         # We want the minimum squared difference
-#         mn, _, mnLoc, _ = cv2.minMaxLoc(result)
-#
-#         print('Minimum square distance = ' + str(mn) + ' With a scale of ' + str(ratio))
-#
-#         if mn > best_score:
-#             best_score = mn
-#             best_resized = resizedMiniMap
-#             best_loc = mnLoc
-#
-#     # Draw the matched rectangle:
-#     # Extract the coordinates of our best match
-#     MPx, MPy = best_loc
-#     currentMap = best_resized
-#     # Step 2: Get the size of the template. This is the same size as the match.
-#     trows, tcols = currentMap.shape[:2]
-#
-#     # Step 3: Draw the rectangle on large_image
-#     cv2.rectangle(reference, (MPx, MPy), (MPx + tcols, MPy + trows), (0, 0, 255), 2)
-#
-#     # Display cropped map and reference
-#     cv2.imshow('current_frame', currentMap)
-#     cv2.imshow('reference', reference)
-#
-#     # Display the original image with the rectangle around the match.
-#     cv2.imshow('output', reference)
-#     cv2.imshow('output', cv2.resize(reference, (1000, 1000)))
-#
-#     cv2.waitKey()
-#
-#     pos = [0, 0]
-#
-#     return pos

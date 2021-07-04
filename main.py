@@ -12,15 +12,19 @@ if (cap.isOpened() == False):
     print("Unable to open video: " + vid_path)
 
 # Read until video is finished
+index = 0
+
 while (cap.isOpened()):
     # Capture frame-by-frame
     ret, frame = cap.read()
-    if ret == True:
+    index = index + 1
+    if (ret == True):
+        if (index % 20 == 0):
             # Display frame
-            #cv2.imshow(vid_path, frame)
+            cv2.imshow(vid_path, frame)
             findMapPoseSIFT(frame, cv2.imread('data/map/we_map.png'))
             # Press Q on keyboard to exit
-            if cv2.waitKey(10) & 0xFF == ord('q'):
+            if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
     else:
         break
