@@ -17,7 +17,7 @@ if (cap.isOpened() == False):
     print("Unable to open video: " + vid_path)
 
 index = 0
-poseHistory = [np.array([-1, -1])]
+poseHistory = np.array([(-1, -1)])
 
 # Read until video is finished
 while (cap.isOpened()):
@@ -27,15 +27,20 @@ while (cap.isOpened()):
     if (ret == True):
         # Display frame
         cv2.imshow(vid_path, frame)
-        if (index % 100 == 0):
+        if (index % 400 == 0):
             # Find map pose estimate
-            poseHistory.append(findMapPoseBRISK(frame, refMap, poseHistory[-1]))
+            poseHistory = np.append(poseHistory, [findMapPoseBRISK(frame, refMap, poseHistory[-1])], 0)
 
-            # Record pose history and draw
-            for pt in poseHistory:
-                cv2.circle(refMap, (int(pt[0]), int(pt[1])), 2, (0, 0, 255), 2)
-                cv2.imshow('Pose estimation', cv2.resize(refMap, (1000, 1000)))
+            # Draw pose history as a series of lines
+            for idx, pt in enumerate(poseHistory):
+                if idx <= 1:
+                    continue
+                else:
+                    cv2.line(refMap, (int(pt[0]), int(pt[1])), (int(poseHistory[idx-1][0]), int(poseHistory[idx-1][1])),
+                             (0, 0, 255), 3)
 
+            # Show pose estimation on reference map
+            cv2.imshow('Pose estimation', cv2.resize(refMap, (1000, 1000)))
 
         # Press Q on keyboard to exit
         if cv2.waitKey(1) & 0xFF == ord('q'):

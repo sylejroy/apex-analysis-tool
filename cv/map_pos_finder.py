@@ -10,7 +10,7 @@ MAP_CROP_TOP_LEFT_Y = 55 + CROP
 MAP_CROP_WIDTH = 230 - CROP * 2
 MAP_CROP_HEIGHT = 230 - CROP * 2
 
-SCALE_FOR_BRISK = 1.0
+SCALE_FOR_BRISK = 1
 SCALE_RATIO = 1.89 * SCALE_FOR_BRISK
 
 NUM_MATCH_POS_EST = 5
@@ -29,6 +29,7 @@ def findMapPoseBRISK(frame, refMap, prevPose=np.array([-1, -1]), plotMatching=Tr
 
     # Scale down
     refMap = cv2.resize(refMap, (int(refMap.shape[0] * SCALE_FOR_BRISK), int(refMap.shape[1] * SCALE_FOR_BRISK)))
+    prevPose = prevPose * SCALE_FOR_BRISK
 
     # Find the keypoints and descriptors with SIFT
     img1 = cv2.cvtColor(refMap, cv2.COLOR_BGR2GRAY)
@@ -36,6 +37,9 @@ def findMapPoseBRISK(frame, refMap, prevPose=np.array([-1, -1]), plotMatching=Tr
 
     kp1, des1 = feature.detectAndCompute(img1, None)
     kp2, des2 = feature.detectAndCompute(img2, None)
+
+    if des2 is None or des1 is None:
+        return prevPose
 
     # create BFMatcher object
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
@@ -67,10 +71,16 @@ def findMapPoseBRISK(frame, refMap, prevPose=np.array([-1, -1]), plotMatching=Tr
         # Pose is not initialised yet, just take the current measurement
         pos = measPose
     else:
-        # Low pass filter
-        alpha = 0.9
-        pos[0] = prevPose[0] * alpha + measPose[0] * (1 - alpha)
-        pos[1] = prevPose[1] * alpha + measPose[1] * (1 - alpha)
+        distFromPrevMeas = ((measPose[0] - prevPose[0]) ** 2 + (measPose[1] - prevPose[1]) ** 2) ** 0.5
+        if distFromPrevMeas > 300: #pixels
+            # Measurement is too noisy
+            pos = prevPose
+            print('Measurement is too noisy and is considered an outlier')
+        else:
+            # Low pass filter
+            alpha = 0.5
+            pos[0] = prevPose[0] * alpha + measPose[0] * (1 - alpha)
+            pos[1] = prevPose[1] * alpha + measPose[1] * (1 - alpha)
 
     return pos / SCALE_FOR_BRISK
 
@@ -109,7 +119,7 @@ def findPoseFromFeatureMatches(matches, kp1, kp2, printPos=False):
 
     scale_ratio = sum(ratio) / len(ratio)
     scale_ratio = max(set(ratio), key=ratio.count)
-    if abs(scale_ratio - SCALE_RATIO) / SCALE_RATIO > 0.2:
+    if abs(scale_ratio / SCALE_FOR_BRISK - SCALE_RATIO) / SCALE_RATIO > 0.2:
         print(scale_ratio)
 
     for idx, ptMini in enumerate(list_kp2):
