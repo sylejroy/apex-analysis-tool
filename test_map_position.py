@@ -1,5 +1,5 @@
 import cv2
-from cv.map_pos_finder import findMapPose
+from cv.map_pos_finder import findMapPose, findMapPoseSIFT
 
 
 # Reference map path
@@ -15,6 +15,9 @@ test2 = cv2.imread(test2_path)
 test3 = cv2.imread(test3_path)
 
 # Find map pose
-pos = findMapPose(test2, we_map)
+#pos = findMapPose(test1, we_map)
 
-print(pos)
+findMapPoseSIFT(test1, we_map)
+findMapPoseSIFT(test2, we_map)
+findMapPoseSIFT(test3, we_map)
+

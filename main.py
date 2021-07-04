@@ -1,4 +1,5 @@
 import cv2
+from cv.map_pos_finder import findMapPoseSIFT
 
 # Video name
 vid_path = 'data/vids/death.mp4'
@@ -16,8 +17,8 @@ while (cap.isOpened()):
     ret, frame = cap.read()
     if ret == True:
             # Display frame
-            cv2.imshow(vid_path, frame)
-
+            #cv2.imshow(vid_path, frame)
+            findMapPoseSIFT(frame, cv2.imread('data/map/we_map.png'))
             # Press Q on keyboard to exit
             if cv2.waitKey(10) & 0xFF == ord('q'):
                 break
