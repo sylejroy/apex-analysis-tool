@@ -10,13 +10,13 @@ MAP_CROP_TOP_LEFT_Y = 55 + CROP
 MAP_CROP_WIDTH = 230 - CROP * 2
 MAP_CROP_HEIGHT = 230 - CROP * 2
 
-SCALE_FOR_BRISK = 0.3
+SCALE_FOR_BRISK = 1.0
 SCALE_RATIO = 1.89 * SCALE_FOR_BRISK
 
-NUM_MATCH_POS_EST = 3
+NUM_MATCH_POS_EST = 5
 
 
-def findMapPoseBRISK(frame, refMap, plotMatching=True, printTimer=False):
+def findMapPoseBRISK(frame, refMap, prevPose=np.array([-1, -1]), plotMatching=True, printTimer=False):
     # Start timer
     start = time.time()
 
@@ -45,7 +45,7 @@ def findMapPoseBRISK(frame, refMap, plotMatching=True, printTimer=False):
     matches = sorted(matches, key=lambda x: x.distance)
 
     # Find pose from the matches
-    pos = findPoseFromFeatureMatches(matches[:NUM_MATCH_POS_EST], kp1, kp2)
+    measPose = findPoseFromFeatureMatches(matches[:NUM_MATCH_POS_EST], kp1, kp2)
 
     # End timer
     end = time.time()
@@ -54,12 +54,23 @@ def findMapPoseBRISK(frame, refMap, plotMatching=True, printTimer=False):
 
     # Display SIFT matching
     if plotMatching:
-        cv2.circle(img1, (int(pos[0]), int(pos[1])), 5, (255, 255, 255), 4)
-        # Draw first 10 matches
+        cv2.circle(img1, (int(measPose[0]), int(measPose[1])), 5, (255, 255, 255), 4)
+        # Draw first x matches
         output = cv2.drawMatches(img1, kp1, img2, kp2, matches[:NUM_MATCH_POS_EST], None,
                                  flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
-        cv2.imshow('output', output)
+        cv2.imshow('output', cv2.resize(output, (1000, 1000)))
         cv2.waitKey(1)
+
+    pos = measPose
+
+    if prevPose[0] == -1:
+        # Pose is not initialised yet, just take the current measurement
+        pos = measPose
+    else:
+        # Low pass filter
+        alpha = 0.9
+        pos[0] = prevPose[0] * alpha + measPose[0] * (1 - alpha)
+        pos[1] = prevPose[1] * alpha + measPose[1] * (1 - alpha)
 
     return pos / SCALE_FOR_BRISK
 
@@ -96,9 +107,10 @@ def findPoseFromFeatureMatches(matches, kp1, kp2, printPos=False):
                 ratio.append(distance_array_kp1[index] / distance_array_kp2[index])
                 index = index + 1
 
-    # scale_ratio = sum(ratio) / len(ratio)
-    # scale_ratio = max(set(ratio), key=ratio.count)
-    # print(scale_ratio)
+    scale_ratio = sum(ratio) / len(ratio)
+    scale_ratio = max(set(ratio), key=ratio.count)
+    if abs(scale_ratio - SCALE_RATIO) / SCALE_RATIO > 0.2:
+        print(scale_ratio)
 
     for idx, ptMini in enumerate(list_kp2):
         list_pos_estimate.append(np.array(list_kp1[idx]) - (np.array(ptMini) * SCALE_RATIO))

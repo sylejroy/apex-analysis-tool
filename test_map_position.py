@@ -1,5 +1,5 @@
 import cv2
-from cv.map_pos_finder import findMapPoseSIFT
+from cv.map_pos_finder import findMapPoseBRISK
 
 
 # Reference map path
@@ -17,7 +17,7 @@ test3 = cv2.imread(test3_path)
 # Find map pose
 #pos = findMapPose(test1, we_map)
 
-findMapPoseSIFT(test1, we_map)
-findMapPoseSIFT(test2, we_map)
-findMapPoseSIFT(test3, we_map)
+findMapPoseBRISK(test1, we_map)
+findMapPoseBRISK(test2, we_map)
+findMapPoseBRISK(test3, we_map)
 
