@@ -10,10 +10,13 @@ MAP_CROP_TOP_LEFT_Y = 55 + CROP
 MAP_CROP_WIDTH = 230 - CROP * 2
 MAP_CROP_HEIGHT = 230 - CROP * 2
 
-SCALE_RATIO = 1.85
+SCALE_FOR_BRISK = 0.3
+SCALE_RATIO = 1.89 * SCALE_FOR_BRISK
+
+NUM_MATCH_POS_EST = 3
 
 
-def findMapPoseSIFT(frame, refMap, plotMatching=True, printTimer=False):
+def findMapPoseBRISK(frame, refMap, plotMatching=True, printTimer=False):
     # Start timer
     start = time.time()
 
@@ -23,6 +26,9 @@ def findMapPoseSIFT(frame, refMap, plotMatching=True, printTimer=False):
 
     # FLANN based SIFT matching
     feature = cv2.BRISK_create()
+
+    # Scale down
+    refMap = cv2.resize(refMap, (int(refMap.shape[0] * SCALE_FOR_BRISK), int(refMap.shape[1] * SCALE_FOR_BRISK)))
 
     # Find the keypoints and descriptors with SIFT
     img1 = cv2.cvtColor(refMap, cv2.COLOR_BGR2GRAY)
@@ -39,7 +45,7 @@ def findMapPoseSIFT(frame, refMap, plotMatching=True, printTimer=False):
     matches = sorted(matches, key=lambda x: x.distance)
 
     # Find pose from the matches
-    pos = findPoseFromFeatureMatches(matches[:10], kp1, kp2)
+    pos = findPoseFromFeatureMatches(matches[:NUM_MATCH_POS_EST], kp1, kp2)
 
     # End timer
     end = time.time()
@@ -48,14 +54,17 @@ def findMapPoseSIFT(frame, refMap, plotMatching=True, printTimer=False):
 
     # Display SIFT matching
     if plotMatching:
+        cv2.circle(img1, (int(pos[0]), int(pos[1])), 5, (255, 255, 255), 4)
         # Draw first 10 matches
-        output = cv2.drawMatches(img1, kp1, img2, kp2, matches[:10], None,
+        output = cv2.drawMatches(img1, kp1, img2, kp2, matches[:NUM_MATCH_POS_EST], None,
                                  flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
-        cv2.imshow('output', cv2.resize(output, (1000, 1000)))
+        cv2.imshow('output', output)
         cv2.waitKey(1)
 
+    return pos / SCALE_FOR_BRISK
 
-def findPoseFromFeatureMatches(matches, kp1, kp2):
+
+def findPoseFromFeatureMatches(matches, kp1, kp2, printPos=False):
     # img1 -> reference map
     # img2 -> minimap on current frame
     list_kp1 = []
@@ -64,6 +73,7 @@ def findPoseFromFeatureMatches(matches, kp1, kp2):
     distance_array_kp2 = []
     ratio = []
     index = 0
+    list_pos_estimate = []
 
     for match in matches:
         img1Idx = match.queryIdx
@@ -86,10 +96,15 @@ def findPoseFromFeatureMatches(matches, kp1, kp2):
                 ratio.append(distance_array_kp1[index] / distance_array_kp2[index])
                 index = index + 1
 
-    scale_ratio = sum(ratio) / len(ratio)
-    scale_ratio = max(set(ratio), key=ratio.count)
-    print(scale_ratio)
+    # scale_ratio = sum(ratio) / len(ratio)
+    # scale_ratio = max(set(ratio), key=ratio.count)
+    # print(scale_ratio)
 
+    for idx, ptMini in enumerate(list_kp2):
+        list_pos_estimate.append(np.array(list_kp1[idx]) - (np.array(ptMini) * SCALE_RATIO))
 
-    pos = [0, 0]
+    pos = sum(list_pos_estimate) / len(list_pos_estimate)
+    if printPos:
+        print(pos)
+
     return pos
