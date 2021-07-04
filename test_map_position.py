@@ -1,5 +1,5 @@
 import cv2
-from cv.map_pos_finder import findMapPose, findMapPoseSIFT
+from cv.map_pos_finder import findMapPoseSIFT
 
 
 # Reference map path
