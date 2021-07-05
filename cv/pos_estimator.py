@@ -14,15 +14,16 @@ MAP_CROP_WIDTH = 230 - ADDITIONAL_CROP * 2
 MAP_CROP_HEIGHT = 230 - ADDITIONAL_CROP * 2
 
 SCALE_FOR_BRISK = 1  # Scaling ratio to be applied to the reference map
-SCALE_RATIO = 1.89 * SCALE_FOR_BRISK  # Approximate scale difference between minimap and reference map
+SCALE_RATIO = 1.88 * SCALE_FOR_BRISK  # Approximate scale difference between minimap and reference map
 
 # Matching parameters
 NUM_MATCH_POS_EST = 5
 
 
-def findMapPoseBRISK(frame, refMap, plotMatching=True, printTimer=False):
+def findMapPoseBRISK(frame, refMap, visu, log=False):
     # Start timer
-    start = time.time()
+    if log:
+        start = time.time()
 
     # Crop frame to contain only minimap
     miniMap = frame[MAP_CROP_TOP_LEFT_Y:MAP_CROP_TOP_LEFT_Y + MAP_CROP_HEIGHT,
@@ -42,7 +43,7 @@ def findMapPoseBRISK(frame, refMap, plotMatching=True, printTimer=False):
 
     # Check for empty descriptors
     if des2 is None or des1 is None:
-        return [0, 0]
+        return [-1, -1]
 
     # create BFMatcher object
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
@@ -55,12 +56,12 @@ def findMapPoseBRISK(frame, refMap, plotMatching=True, printTimer=False):
     measPose = findPoseFromFeatureMatches(matches[:NUM_MATCH_POS_EST], kp1, kp2)
 
     # End timer
-    end = time.time()
-    if printTimer:
+    if log:
+        end = time.time()
         print(end-start)
 
     # Display SIFT matching
-    if plotMatching:
+    if visu:
         cv2.circle(img1, (int(measPose[0]), int(measPose[1])), 5, (255, 255, 255), 4)
         # Draw first x matches
         output = cv2.drawMatches(img1, kp1, img2, kp2, matches[:NUM_MATCH_POS_EST], None,
@@ -68,9 +69,12 @@ def findMapPoseBRISK(frame, refMap, plotMatching=True, printTimer=False):
         cv2.imshow('output', cv2.resize(output, (1000, 1000)))
         cv2.waitKey(1)
 
-    pos = measPose
+    pos = measPose / SCALE_FOR_BRISK
 
-    return pos / SCALE_FOR_BRISK
+    # f = open('pose_estimation.csv', 'a')
+    # f.write(str(pos[0]) + ';' + str(pos[1]) + '\n')
+
+    return pos
 
 
 def findPoseFromFeatureMatches(matches, kp1, kp2, printPos=False):
@@ -109,6 +113,9 @@ def findPoseFromFeatureMatches(matches, kp1, kp2, printPos=False):
     scale_ratio = max(set(ratio), key=ratio.count)
     if abs(scale_ratio / SCALE_FOR_BRISK - SCALE_RATIO) / SCALE_RATIO > 0.2:
         print(scale_ratio)
+
+    f = open('scale_ratio.csv', 'a')
+    f.write(str(scale_ratio) + '\n')
 
     for idx, ptMini in enumerate(list_kp2):
         list_pos_estimate.append(np.array(list_kp1[idx]) - (np.array(ptMini) * SCALE_RATIO))
