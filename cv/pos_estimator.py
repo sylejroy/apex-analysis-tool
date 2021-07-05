@@ -1,63 +1,73 @@
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
 import time
 
+from pykalman import KalmanFilter
+
 # x = coordinates to the right, y = coordinates down
-CROP = 0
-MAP_CROP_TOP_LEFT_X = 55 + CROP
-MAP_CROP_TOP_LEFT_Y = 55 + CROP
-MAP_CROP_WIDTH = 230 - CROP * 2
-MAP_CROP_HEIGHT = 230 - CROP * 2
 
-SCALE_FOR_BRISK = 1
-SCALE_RATIO = 1.89 * SCALE_FOR_BRISK
+# Minimap cropping parameters
+ADDITIONAL_CROP = 0
+MAP_CROP_TOP_LEFT_X = 55 + ADDITIONAL_CROP
+MAP_CROP_TOP_LEFT_Y = 55 + ADDITIONAL_CROP
+MAP_CROP_WIDTH = 230 - ADDITIONAL_CROP * 2
+MAP_CROP_HEIGHT = 230 - ADDITIONAL_CROP * 2
 
-NUM_MATCH_POS_EST = 5
+SCALE_FOR_BRISK = 0.5  # Scaling ratio to be applied to the reference map
+SCALE_RATIO = 1.81 * SCALE_FOR_BRISK  # Approximate scale difference between minimap and reference map
+
+# Matching parameters
+NUM_MATCH_POS_EST = 3
 
 
-def findMapPoseBRISK(frame, refMap, prevPose=np.array([-1, -1]), plotMatching=True, printTimer=False):
+def findMapPoseBRISK(frame, refMap, visu, log=False, cropRef=False, x_est=0, y_est=0):
     # Start timer
-    start = time.time()
+    if log:
+        start = time.time()
 
-    # Crop
+    # Crop frame to contain only minimap
     miniMap = frame[MAP_CROP_TOP_LEFT_Y:MAP_CROP_TOP_LEFT_Y + MAP_CROP_HEIGHT,
                     MAP_CROP_TOP_LEFT_X:MAP_CROP_TOP_LEFT_X + MAP_CROP_WIDTH]
 
     # FLANN based SIFT matching
     feature = cv2.BRISK_create()
 
-    # Scale down
+    # Crop reference map
+    cropped = False
+    if cropRef:
+        refMap = refMap[int(y_est) - 200: int(y_est) + 200, int(x_est) - 200: int(x_est) + 200]
+        cropped = True
+
+    # Scale reference map
     refMap = cv2.resize(refMap, (int(refMap.shape[0] * SCALE_FOR_BRISK), int(refMap.shape[1] * SCALE_FOR_BRISK)))
-    prevPose = prevPose * SCALE_FOR_BRISK
 
     # Find the keypoints and descriptors with SIFT
     img1 = cv2.cvtColor(refMap, cv2.COLOR_BGR2GRAY)
     img2 = cv2.cvtColor(miniMap, cv2.COLOR_BGR2GRAY)
-
     kp1, des1 = feature.detectAndCompute(img1, None)
     kp2, des2 = feature.detectAndCompute(img2, None)
 
+    # Check for empty descriptors
     if des2 is None or des1 is None:
-        return prevPose
+        return [-1, -1]
 
     # create BFMatcher object
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-    # Match descriptors.
+    # Match descriptors
     matches = bf.match(des1, des2)
-    # Sort them in the order of their distance.
+    # Sort them in the order of their distance (akin to goodness of fit)
     matches = sorted(matches, key=lambda x: x.distance)
 
     # Find pose from the matches
     measPose = findPoseFromFeatureMatches(matches[:NUM_MATCH_POS_EST], kp1, kp2)
 
     # End timer
-    end = time.time()
-    if printTimer:
+    if log:
+        end = time.time()
         print(end-start)
 
     # Display SIFT matching
-    if plotMatching:
+    if visu:
         cv2.circle(img1, (int(measPose[0]), int(measPose[1])), 5, (255, 255, 255), 4)
         # Draw first x matches
         output = cv2.drawMatches(img1, kp1, img2, kp2, matches[:NUM_MATCH_POS_EST], None,
@@ -65,24 +75,15 @@ def findMapPoseBRISK(frame, refMap, prevPose=np.array([-1, -1]), plotMatching=Tr
         cv2.imshow('output', cv2.resize(output, (1000, 1000)))
         cv2.waitKey(1)
 
-    pos = measPose
+    pos = measPose / SCALE_FOR_BRISK
 
-    if prevPose[0] == -1:
-        # Pose is not initialised yet, just take the current measurement
-        pos = measPose
-    else:
-        distFromPrevMeas = ((measPose[0] - prevPose[0]) ** 2 + (measPose[1] - prevPose[1]) ** 2) ** 0.5
-        if distFromPrevMeas > 300: #pixels
-            # Measurement is too noisy
-            pos = prevPose
-            print('Measurement is too noisy and is considered an outlier')
-        else:
-            # Low pass filter
-            alpha = 0.5
-            pos[0] = prevPose[0] * alpha + measPose[0] * (1 - alpha)
-            pos[1] = prevPose[1] * alpha + measPose[1] * (1 - alpha)
+    # f = open('pose_estimation.csv', 'a')
+    # f.write(str(pos[0]) + ';' + str(pos[1]) + '\n')
 
-    return pos / SCALE_FOR_BRISK
+    if cropped:
+        pos = [pos[0] + x_est - 200, pos[1] + y_est-200]
+
+    return pos
 
 
 def findPoseFromFeatureMatches(matches, kp1, kp2, printPos=False):
@@ -117,10 +118,12 @@ def findPoseFromFeatureMatches(matches, kp1, kp2, printPos=False):
                 ratio.append(distance_array_kp1[index] / distance_array_kp2[index])
                 index = index + 1
 
-    scale_ratio = sum(ratio) / len(ratio)
-    scale_ratio = max(set(ratio), key=ratio.count)
-    if abs(scale_ratio / SCALE_FOR_BRISK - SCALE_RATIO) / SCALE_RATIO > 0.2:
-        print(scale_ratio)
+    # scale_ratio = max(set(ratio), key=ratio.count)
+    # if abs(scale_ratio / SCALE_FOR_BRISK - SCALE_RATIO) / SCALE_RATIO > 0.2:
+    #     print(scale_ratio)
+    #
+    # f = open('scale_ratio.csv', 'a')
+    # f.write(str(scale_ratio) + '\n')
 
     for idx, ptMini in enumerate(list_kp2):
         list_pos_estimate.append(np.array(list_kp1[idx]) - (np.array(ptMini) * SCALE_RATIO))

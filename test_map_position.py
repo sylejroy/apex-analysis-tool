@@ -1,5 +1,5 @@
 import cv2
-from cv.map_pos_finder import findMapPoseBRISK
+from cv.pos_estimator import findMapPoseBRISK
 
 
 # Reference map path
