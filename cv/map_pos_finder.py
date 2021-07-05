@@ -1,51 +1,54 @@
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
 import time
 
+from pykalman import KalmanFilter
+
 # x = coordinates to the right, y = coordinates down
-CROP = 0
-MAP_CROP_TOP_LEFT_X = 55 + CROP
-MAP_CROP_TOP_LEFT_Y = 55 + CROP
-MAP_CROP_WIDTH = 230 - CROP * 2
-MAP_CROP_HEIGHT = 230 - CROP * 2
 
-SCALE_FOR_BRISK = 1
-SCALE_RATIO = 1.89 * SCALE_FOR_BRISK
+# Minimap cropping parameters
+ADDITIONAL_CROP = 0
+MAP_CROP_TOP_LEFT_X = 55 + ADDITIONAL_CROP
+MAP_CROP_TOP_LEFT_Y = 55 + ADDITIONAL_CROP
+MAP_CROP_WIDTH = 230 - ADDITIONAL_CROP * 2
+MAP_CROP_HEIGHT = 230 - ADDITIONAL_CROP * 2
 
+SCALE_FOR_BRISK = 1  # Scaling ratio to be applied to the reference map
+SCALE_RATIO = 1.89 * SCALE_FOR_BRISK  # Approximate scale difference between minimap and reference map
+
+# Matching parameters
 NUM_MATCH_POS_EST = 5
 
 
-def findMapPoseBRISK(frame, refMap, prevPose=np.array([-1, -1]), plotMatching=True, printTimer=False):
+def findMapPoseBRISK(frame, refMap, plotMatching=True, printTimer=False):
     # Start timer
     start = time.time()
 
-    # Crop
+    # Crop frame to contain only minimap
     miniMap = frame[MAP_CROP_TOP_LEFT_Y:MAP_CROP_TOP_LEFT_Y + MAP_CROP_HEIGHT,
                     MAP_CROP_TOP_LEFT_X:MAP_CROP_TOP_LEFT_X + MAP_CROP_WIDTH]
 
     # FLANN based SIFT matching
     feature = cv2.BRISK_create()
 
-    # Scale down
+    # Scale reference map
     refMap = cv2.resize(refMap, (int(refMap.shape[0] * SCALE_FOR_BRISK), int(refMap.shape[1] * SCALE_FOR_BRISK)))
-    prevPose = prevPose * SCALE_FOR_BRISK
 
     # Find the keypoints and descriptors with SIFT
     img1 = cv2.cvtColor(refMap, cv2.COLOR_BGR2GRAY)
     img2 = cv2.cvtColor(miniMap, cv2.COLOR_BGR2GRAY)
-
     kp1, des1 = feature.detectAndCompute(img1, None)
     kp2, des2 = feature.detectAndCompute(img2, None)
 
+    # Check for empty descriptors
     if des2 is None or des1 is None:
-        return prevPose
+        return [0, 0]
 
     # create BFMatcher object
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-    # Match descriptors.
+    # Match descriptors
     matches = bf.match(des1, des2)
-    # Sort them in the order of their distance.
+    # Sort them in the order of their distance (akin to goodness of fit)
     matches = sorted(matches, key=lambda x: x.distance)
 
     # Find pose from the matches
@@ -66,21 +69,6 @@ def findMapPoseBRISK(frame, refMap, prevPose=np.array([-1, -1]), plotMatching=Tr
         cv2.waitKey(1)
 
     pos = measPose
-
-    if prevPose[0] == -1:
-        # Pose is not initialised yet, just take the current measurement
-        pos = measPose
-    else:
-        distFromPrevMeas = ((measPose[0] - prevPose[0]) ** 2 + (measPose[1] - prevPose[1]) ** 2) ** 0.5
-        if distFromPrevMeas > 300: #pixels
-            # Measurement is too noisy
-            pos = prevPose
-            print('Measurement is too noisy and is considered an outlier')
-        else:
-            # Low pass filter
-            alpha = 0.5
-            pos[0] = prevPose[0] * alpha + measPose[0] * (1 - alpha)
-            pos[1] = prevPose[1] * alpha + measPose[1] * (1 - alpha)
 
     return pos / SCALE_FOR_BRISK
 
