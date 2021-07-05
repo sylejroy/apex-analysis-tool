@@ -75,9 +75,9 @@ while cap.isOpened():
 
             # Draw meas and estimated pose history
             for idx, pt in enumerate(np.flip(np.flip(measHistory, 0)[:10], 0)):
-                cv2.circle(refMapVis, (int(pt[0]), int(pt[1])), 2, (255 * (idx / 10),
+                cv2.circle(refMapVis, (int(pt[0]), int(pt[1])), 5, (255 * (idx / 10),
                                                                     255 * (idx / 10),
-                                                                    255 * (idx / 10)), cv2.FILLED)
+                                                                    0), cv2.FILLED)
 
             for idx, pt in enumerate(estHistory):
                 if idx <= 1:
@@ -90,12 +90,12 @@ while cap.isOpened():
                 cv2.circle(refMapVis, (int(estHistory[-1][0]), int(estHistory[-1][1])), 150, (0, 0, 255))
 
             # Show pose estimation on reference map
-            cv2.imshow('Pose estimation', cv2.resize(refMapVis, (1000, 1000)))
+            # cv2.imshow('Pose estimation', cv2.resize(refMapVis, (1000, 1000)))
 
             # Show zoomed pose estimation on reference map
-            # zoomRefMapVis = refMapVis[int(estHistory[-1][1]) - 150:int(estHistory[-1][1]) + 150,
-            #                           int(estHistory[-1][0]) - 150:int(estHistory[-1][0]) + 150]
-            # cv2.imshow('Zoomed Pose', cv2.resize(zoomRefMapVis, (1000, 1000), cv2.INTER_NEAREST))
+            zoomRefMapVis = refMapVis[int(estHistory[-1][1]) - 150:int(estHistory[-1][1]) + 150,
+                                      int(estHistory[-1][0]) - 150:int(estHistory[-1][0]) + 150]
+            cv2.imshow('Zoomed Pose', cv2.resize(zoomRefMapVis, (1000, 1000), cv2.INTER_NEAREST))
 
         # Press Q on keyboard to exit
         if cv2.waitKey(1) & 0xFF == ord('q'):
