@@ -45,13 +45,7 @@ while cap.isOpened():
         if index % 30 == 0:  # Only run pose estimation on every xth frame
             refMapVis = refMap.copy()
 
-
-            PE.preprocess(frame)
-            start = time.time()
-            PE.matchMinimapToReference()
-            end = time.time()
-            print(end - start)
-            newMeas = PE.estEgoPoseFromMatches()
+            newMeas = PE.run(frame)
 
             # Find map pose estimate
             if len(measHistory) == 0:

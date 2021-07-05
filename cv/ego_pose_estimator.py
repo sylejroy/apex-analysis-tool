@@ -33,6 +33,13 @@ class PoseEstimator:
         self.estRatio = []
         self.ratioIndex = 0
 
+    def run(self, inputFrame):
+        self.preprocess(inputFrame)
+        self.matchMinimapToReference()
+        posEstimation = self.estEgoPoseFromMatches()
+
+        return posEstimation
+
     def preprocess(self, inputFrame):
         inputFrame = cv2.cvtColor(inputFrame, cv2.COLOR_BGR2GRAY)
         self.miniMap = inputFrame[p.MM_TOP_LEFT_Y_PXL:p.MM_TOP_LEFT_Y_PXL + p.MM_HEIGHT_PXL,
