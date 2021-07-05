@@ -13,14 +13,14 @@ MAP_CROP_TOP_LEFT_Y = 55 + ADDITIONAL_CROP
 MAP_CROP_WIDTH = 230 - ADDITIONAL_CROP * 2
 MAP_CROP_HEIGHT = 230 - ADDITIONAL_CROP * 2
 
-SCALE_FOR_BRISK = 1  # Scaling ratio to be applied to the reference map
-SCALE_RATIO = 1.88 * SCALE_FOR_BRISK  # Approximate scale difference between minimap and reference map
+SCALE_FOR_BRISK = 0.5  # Scaling ratio to be applied to the reference map
+SCALE_RATIO = 1.81 * SCALE_FOR_BRISK  # Approximate scale difference between minimap and reference map
 
 # Matching parameters
-NUM_MATCH_POS_EST = 5
+NUM_MATCH_POS_EST = 3
 
 
-def findMapPoseBRISK(frame, refMap, visu, log=False):
+def findMapPoseBRISK(frame, refMap, visu, log=False, cropRef=False, x_est=0, y_est=0):
     # Start timer
     if log:
         start = time.time()
@@ -31,6 +31,12 @@ def findMapPoseBRISK(frame, refMap, visu, log=False):
 
     # FLANN based SIFT matching
     feature = cv2.BRISK_create()
+
+    # Crop reference map
+    cropped = False
+    if cropRef:
+        refMap = refMap[int(y_est) - 200: int(y_est) + 200, int(x_est) - 200: int(x_est) + 200]
+        cropped = True
 
     # Scale reference map
     refMap = cv2.resize(refMap, (int(refMap.shape[0] * SCALE_FOR_BRISK), int(refMap.shape[1] * SCALE_FOR_BRISK)))
@@ -74,6 +80,9 @@ def findMapPoseBRISK(frame, refMap, visu, log=False):
     # f = open('pose_estimation.csv', 'a')
     # f.write(str(pos[0]) + ';' + str(pos[1]) + '\n')
 
+    if cropped:
+        pos = [pos[0] + x_est - 200, pos[1] + y_est-200]
+
     return pos
 
 
@@ -109,13 +118,12 @@ def findPoseFromFeatureMatches(matches, kp1, kp2, printPos=False):
                 ratio.append(distance_array_kp1[index] / distance_array_kp2[index])
                 index = index + 1
 
-    scale_ratio = sum(ratio) / len(ratio)
-    scale_ratio = max(set(ratio), key=ratio.count)
-    if abs(scale_ratio / SCALE_FOR_BRISK - SCALE_RATIO) / SCALE_RATIO > 0.2:
-        print(scale_ratio)
-
-    f = open('scale_ratio.csv', 'a')
-    f.write(str(scale_ratio) + '\n')
+    # scale_ratio = max(set(ratio), key=ratio.count)
+    # if abs(scale_ratio / SCALE_FOR_BRISK - SCALE_RATIO) / SCALE_RATIO > 0.2:
+    #     print(scale_ratio)
+    #
+    # f = open('scale_ratio.csv', 'a')
+    # f.write(str(scale_ratio) + '\n')
 
     for idx, ptMini in enumerate(list_kp2):
         list_pos_estimate.append(np.array(list_kp1[idx]) - (np.array(ptMini) * SCALE_RATIO))

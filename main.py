@@ -22,6 +22,8 @@ if not cap.isOpened():
 index = 0
 measHistory = np.array([])
 estHistory = np.array([])
+distFromEstPose = 0
+resetCounter = 0
 
 # Initialise KF
 KF = KalmanFilter(0.5, 0, 0, 1, 30, 30)
@@ -39,21 +41,37 @@ while cap.isOpened():
         if index % 30 == 0:  # Only run pose estimation on every xth frame
             refMapVis = refMap.copy()
 
+            if len(estHistory) == 0:
+                newMeas = findMapPoseBRISK(frame, refMap, False, False)
+            else:
+                newMeas = findMapPoseBRISK(frame, refMap, False, False, False, estHistory[-1][0], estHistory[-1][1])
+
             # Find map pose estimate
             if len(measHistory) == 0:
-                measHistory = np.array([findMapPoseBRISK(frame, refMap, False, False)])
+                measHistory = np.array([newMeas])
                 KF.initState(int(measHistory[-1][0]), int(measHistory[-1][1]))
             else:
-                measHistory = np.append(measHistory, [findMapPoseBRISK(frame, refMap, True, False)], 0)
+                distFromEstPose = (((newMeas[0] - estHistory[-1][0]) ** 2) + ((newMeas[1] - estHistory[-1][1]) ** 2)) ** 0.5
+                measHistory = np.append(measHistory, [newMeas], 0)
 
-            (x, y) = KF.predict()
+            if distFromEstPose < 150:
+                resetCounter = 0
 
-            (x1, y1) = KF.update([measHistory[-1][0], measHistory[-1][1]])
+                (x, y) = KF.predict()
 
-            if len(estHistory) == 0:
-                estHistory = np.array([[np.asarray(x1)[0][0], np.asarray(y1)[0][1]]])
+                (x1, y1) = KF.update([measHistory[-1][0], measHistory[-1][1]])
+
+                if len(estHistory) == 0:
+                    estHistory = np.array([[np.asarray(x1)[0][0], np.asarray(y1)[0][1]]])
+                else:
+                    estHistory = np.append(estHistory, [np.array([np.asarray(x1)[0][0], np.asarray(y1)[0][1]])], 0)
             else:
-                estHistory = np.append(estHistory, [np.array([np.asarray(x1)[0][0], np.asarray(y1)[0][1]])], 0)
+                print('Measurement is too far from estimation, and will be ignored')
+                resetCounter = resetCounter + 1
+                if resetCounter > 20:
+                    KF.initState(int(measHistory[-1][0]), int(measHistory[-1][1]))
+                    print('Reseting KF state')
+                    resetCounter = 0
 
             # Draw meas and estimated pose history
             for idx, pt in enumerate(np.flip(np.flip(measHistory, 0)[:10], 0)):
@@ -68,13 +86,16 @@ while cap.isOpened():
                     cv2.line(refMapVis, (int(pt[0]), int(pt[1])), (int(estHistory[idx - 1][0]), int(estHistory[idx - 1][1])),
                              (0, 0, 255 * idx / len(estHistory)), 3)
 
+            if len(estHistory) > 0:
+                cv2.circle(refMapVis, (int(estHistory[-1][0]), int(estHistory[-1][1])), 150, (0, 0, 255))
+
             # Show pose estimation on reference map
             cv2.imshow('Pose estimation', cv2.resize(refMapVis, (1000, 1000)))
 
             # Show zoomed pose estimation on reference map
-            zoomRefMapVis = refMapVis[int(estHistory[-1][1]) - 150:int(estHistory[-1][1]) + 150,
-                                      int(estHistory[-1][0]) - 150:int(estHistory[-1][0]) + 150]
-            cv2.imshow('Zoomed Pose', cv2.resize(zoomRefMapVis, (1000, 1000), cv2.INTER_NEAREST))
+            # zoomRefMapVis = refMapVis[int(estHistory[-1][1]) - 150:int(estHistory[-1][1]) + 150,
+            #                           int(estHistory[-1][0]) - 150:int(estHistory[-1][0]) + 150]
+            # cv2.imshow('Zoomed Pose', cv2.resize(zoomRefMapVis, (1000, 1000), cv2.INTER_NEAREST))
 
         # Press Q on keyboard to exit
         if cv2.waitKey(1) & 0xFF == ord('q'):
