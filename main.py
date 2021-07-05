@@ -1,9 +1,10 @@
 import cv2
 import numpy as np
+import time
 
 from kalman_filter import KalmanFilter
 
-from cv.pos_estimator import findMapPoseBRISK
+from cv.ego_pose_estimator import PoseEstimator
 
 ROI_WIDTH = 400
 ROI_HEIGHT = 400
@@ -28,6 +29,9 @@ resetCounter = 0
 # Initialise KF
 KF = KalmanFilter(0.5, 0, 0, 1, 30, 30)
 
+# Initialise pose estimator
+PE = PoseEstimator(refMap)
+
 # Read until video is finished
 while cap.isOpened():
     # Capture frame-by-frame
@@ -41,10 +45,13 @@ while cap.isOpened():
         if index % 30 == 0:  # Only run pose estimation on every xth frame
             refMapVis = refMap.copy()
 
-            if len(estHistory) == 0:
-                newMeas = findMapPoseBRISK(frame, refMap, False, False)
-            else:
-                newMeas = findMapPoseBRISK(frame, refMap, False, False, False, estHistory[-1][0], estHistory[-1][1])
+
+            PE.preprocess(frame)
+            start = time.time()
+            PE.matchMinimapToReference()
+            end = time.time()
+            print(end - start)
+            newMeas = PE.estEgoPoseFromMatches()
 
             # Find map pose estimate
             if len(measHistory) == 0:
