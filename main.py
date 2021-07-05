@@ -27,7 +27,7 @@ distFromEstPose = 0
 resetCounter = 0
 
 # Initialise KF
-KF = KalmanFilter(0.5, 0, 0, 1, 30, 30)
+KF = KalmanFilter(1, 0, 0, 1, 5, 5)
 
 # Initialise pose estimator
 PE = PoseEstimator(refMap)
@@ -42,10 +42,13 @@ while cap.isOpened():
         # Display frame
         cv2.imshow(vid_path, frame)
 
-        if index % 30 == 0:  # Only run pose estimation on every xth frame
+        if index % 60 == 0:  # Only run pose estimation on every xth frame
             refMapVis = refMap.copy()
 
+            startPE = time.time()
             newMeas = PE.run(frame)
+            endPE = time.time()
+            print(endPE - startPE)
 
             # Find map pose estimate
             if len(measHistory) == 0:
