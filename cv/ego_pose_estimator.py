@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import time
+from statistics import median
 
 import parameters as p
 
@@ -30,8 +31,9 @@ class PoseEstimator:
 
         self.crossDistsRef = []
         self.crossDistsMM = []
-        self.estRatio = []
-        self.ratioIndex = 0
+        self.estRatio = [p.MM_TO_REF_SCALE_RATIO, p.MM_TO_REF_SCALE_RATIO, p.MM_TO_REF_SCALE_RATIO,
+                         p.MM_TO_REF_SCALE_RATIO, p.MM_TO_REF_SCALE_RATIO]
+        self.scaleRatio = p.MM_TO_REF_SCALE_RATIO
 
     def run(self, inputFrame):
         self.preprocess(inputFrame)
@@ -72,7 +74,7 @@ class PoseEstimator:
         matchesMask = [[0, 0] for _ in range(len(self.matches))]
         # Ratio test to only select good matches
         for i, (m, n) in enumerate(self.matches):
-            if m.distance < 0.25 * n.distance:
+            if m.distance < 0.28 * n.distance:
                 matchesMask[i] = [1, 0]
                 self.maskedMatches.append(m)
 
@@ -103,7 +105,7 @@ class PoseEstimator:
         posEstList = []
 
         for idx, mmPt in enumerate(self.mmMatchedKPList):
-            posEstList.append(np.array(self.refMatchedKPList[idx]) - (np.array(mmPt) * p.MM_TO_REF_SCALE_RATIO))
+            posEstList.append(np.array(self.refMatchedKPList[idx]) - (np.array(mmPt) * self.scaleRatio))
 
         if len(posEstList) == 0:
             pos = [-1, -1]
@@ -127,21 +129,39 @@ class PoseEstimator:
                     # Most likely an outlier
                     refOutlierIdxList.append(idxRef)
 
+        for idxRef, ptRef in enumerate(self.mmMatchedKPList):
+            for idxTst, ptTst in enumerate(self.mmMatchedKPList):
+                if idxRef != idxTst:
+                    self.crossDistsMM.append(((ptRef[0] - ptTst[0]) ** 2 + (ptRef[1] - ptTst[1]) ** 2) ** 0.5)
+
         if len(refOutlierIdxList) != 0:
             refOutlierIdxList.reverse()
             for i in refOutlierIdxList:
                 del self.refMatchedKPList[i]
                 del self.mmMatchedKPList[i]
 
+        distZeroIdxList = []
 
-        # # This scale ratio computation is still problematic as it sometimes leads to a division by zero
-        #             self.estRatio.append(self.crossDistsRef[self.ratioIndex] / self.crossDistsMM[self.ratioIndex])
-        #             self.ratioIndex = self.ratioIndex + 1
-        #
-        # # scale_ratio = max(set(self.estRatio), key=self.estRatio.count)
-        # scale_ratio = sum(self.estRatio) / len(self.estRatio)
-        #
-        # print(scale_ratio)
+        for i, dist in enumerate(self.crossDistsMM):
+            if dist < 1.0:
+                distZeroIdxList.append(i)
+
+        if len(distZeroIdxList) != 0:
+            distZeroIdxList.reverse()
+            for i in distZeroIdxList:
+                del self.crossDistsMM[i]
+                del self.crossDistsRef[i]
+
+        self.estRatio.append(self.crossDistsRef[-1] / self.crossDistsMM[-1])
+
+        if len(self.estRatio) > 9:
+            del self.estRatio[0]
+
+        # Find median of estimated ratio vector
+        self.scaleRatio = median(self.estRatio)
+
+        if p.EPE_DBG:
+            print(self.scaleRatio)
 
 
 if __name__ == '__main__':

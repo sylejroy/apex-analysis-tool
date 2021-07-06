@@ -44,6 +44,8 @@ while cap.isOpened():
         cv2.imshow(vid_path, frame)
 
         if index % 60 == 0:  # Only run pose estimation on every xth frame
+            refMapVis = refMap.copy()
+
             startPE = time.time()
             newMeas = PE.run(frame)
             endPE = time.time()
@@ -99,8 +101,11 @@ while cap.isOpened():
             # Show zoomed pose estimation on reference map
             zoomRefMapVis = refMapVis[int(estHistory[-1][1]) - 150:int(estHistory[-1][1]) + 150,
                                       int(estHistory[-1][0]) - 150:int(estHistory[-1][0]) + 150]
-            # cv2.imshow('Zoomed Pose', cv2.resize(zoomRefMapVis, (1000, 1000), cv2.INTER_NEAREST))
-            cv2.imshow('RefMapVis', cv2.resize(refMapVis, (1000, 1000)))
+            # if estHistory[-1][0] == -1:
+            #     zoomRefMapVis = refMapVis
+
+            cv2.imshow('Zoomed Pose', cv2.resize(zoomRefMapVis, (1000, 1000), cv2.INTER_NEAREST))
+            # cv2.imshow('RefMapVis', cv2.resize(refMapVis, (1000, 1000)))
 
         # Press Q on keyboard to exit
         if cv2.waitKey(1) & 0xFF == ord('q'):
