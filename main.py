@@ -15,6 +15,7 @@ vid_path = 'data/vids/lifeline 4k.mp4'
 # Read media
 cap = cv2.VideoCapture(vid_path)
 refMap = cv2.imread('data/map/we_map.png')
+refMapVis = refMap.copy()
 
 # Check if vid is opened successfully
 if not cap.isOpened():
@@ -43,8 +44,6 @@ while cap.isOpened():
         cv2.imshow(vid_path, frame)
 
         if index % 60 == 0:  # Only run pose estimation on every xth frame
-            refMapVis = refMap.copy()
-
             startPE = time.time()
             newMeas = PE.run(frame)
             endPE = time.time()
@@ -55,7 +54,8 @@ while cap.isOpened():
                 measHistory = np.array([newMeas])
                 KF.initState(int(measHistory[-1][0]), int(measHistory[-1][1]))
             else:
-                distFromEstPose = (((newMeas[0] - estHistory[-1][0]) ** 2) + ((newMeas[1] - estHistory[-1][1]) ** 2)) ** 0.5
+                distFromEstPose = (((newMeas[0] - estHistory[-1][0]) ** 2)
+                                   + ((newMeas[1] - estHistory[-1][1]) ** 2)) ** 0.5
                 measHistory = np.append(measHistory, [newMeas], 0)
 
             if distFromEstPose < 150:
@@ -74,7 +74,7 @@ while cap.isOpened():
                 resetCounter = resetCounter + 1
                 if resetCounter > 20:
                     KF.initState(int(measHistory[-1][0]), int(measHistory[-1][1]))
-                    print('Reseting KF state')
+                    print('Resetting KF state')
                     resetCounter = 0
 
             # Draw meas and estimated pose history
@@ -90,8 +90,8 @@ while cap.isOpened():
                     cv2.line(refMapVis, (int(pt[0]), int(pt[1])), (int(estHistory[idx - 1][0]), int(estHistory[idx - 1][1])),
                              (0, 0, 255 * idx / len(estHistory)), 3)
 
-            if len(estHistory) > 0:
-                cv2.circle(refMapVis, (int(estHistory[-1][0]), int(estHistory[-1][1])), 150, (0, 0, 255))
+            # if len(estHistory) > 0:
+            #     cv2.circle(refMapVis, (int(estHistory[-1][0]), int(estHistory[-1][1])), 150, (0, 0, 255))
 
             # Show pose estimation on reference map
             # cv2.imshow('Pose estimation', cv2.resize(refMapVis, (1000, 1000)))
@@ -99,7 +99,8 @@ while cap.isOpened():
             # Show zoomed pose estimation on reference map
             zoomRefMapVis = refMapVis[int(estHistory[-1][1]) - 150:int(estHistory[-1][1]) + 150,
                                       int(estHistory[-1][0]) - 150:int(estHistory[-1][0]) + 150]
-            cv2.imshow('Zoomed Pose', cv2.resize(zoomRefMapVis, (1000, 1000), cv2.INTER_NEAREST))
+            # cv2.imshow('Zoomed Pose', cv2.resize(zoomRefMapVis, (1000, 1000), cv2.INTER_NEAREST))
+            cv2.imshow('RefMapVis', cv2.resize(refMapVis, (1000, 1000)))
 
         # Press Q on keyboard to exit
         if cv2.waitKey(1) & 0xFF == ord('q'):

@@ -44,8 +44,8 @@ class PoseEstimator:
                 return [-1, -1]
 
         self.matchMinimapToReference()
-        posEstimation = self.estEgoPoseFromMatches()
         self.computeMatchValidation()
+        posEstimation = self.estEgoPoseFromMatches()
         return posEstimation
 
     def preprocess(self, inputFrame):
@@ -86,7 +86,6 @@ class PoseEstimator:
             cv2.imshow('matches', cv2.resize(drawMatches, (1000, 1000)))
             cv2.waitKey(1)
 
-    def estEgoPoseFromMatches(self):
         prevXref = 0
 
         for match in self.maskedMatches:
@@ -100,6 +99,7 @@ class PoseEstimator:
                 self.mmMatchedKPList.append((x_mm - p.MM_WIDTH_PXL / 2, y_mm - p.MM_HEIGHT_PXL / 2))
                 prevXref = int(x_ref)
 
+    def estEgoPoseFromMatches(self):
         posEstList = []
 
         for idx, mmPt in enumerate(self.mmMatchedKPList):
@@ -114,7 +114,6 @@ class PoseEstimator:
 
     def computeMatchValidation(self):
         refOutlierIdxList = []
-        mmOutlierIdxList = []
 
         for idxRef, ptRef in enumerate(self.refMatchedKPList):
             currentCrossDists = []
@@ -122,28 +121,16 @@ class PoseEstimator:
                 if idxRef != idxTst:
                     self.crossDistsRef.append(((ptRef[0] - ptTst[0]) ** 2 + (ptRef[1] - ptTst[1]) ** 2) ** 0.5)
                     currentCrossDists.append(self.crossDistsRef[-1])
-                    if len(currentCrossDists) > 1:
-                        if (sum(currentCrossDists) / len(currentCrossDists)) > 300:
-                            # Most likely an outlier
-                            refOutlierIdxList.append(idxRef)
 
-        for idxRef, ptRef in enumerate(self.mmMatchedKPList):
-            currentCrossDists = []
-            for idxTst, ptTst in enumerate(self.mmMatchedKPList):
-                if idxRef != idxTst:
-                    self.crossDistsMM.append(((ptRef[0] - ptTst[0]) ** 2 + (ptRef[1] - ptTst[1]) ** 2) ** 0.5)
-                    currentCrossDists.append(self.crossDistsMM[-1])
-                    if len(currentCrossDists) != 0:
-                        if (sum(currentCrossDists) / len(currentCrossDists)) > 400:
-                            # Most likely an outlier
-                            mmOutlierIdxList.append(idxRef)
+            if len(currentCrossDists) > 1:
+                if (sum(currentCrossDists) / len(currentCrossDists)) > 400:
+                    # Most likely an outlier
+                    refOutlierIdxList.append(idxRef)
 
         if len(refOutlierIdxList) != 0:
-            for i in refOutlierIdxList.reverse():
+            refOutlierIdxList.reverse()
+            for i in refOutlierIdxList:
                 del self.refMatchedKPList[i]
-
-        if len(mmOutlierIdxList) != 0:
-            for i in mmOutlierIdxList.reverse():
                 del self.mmMatchedKPList[i]
 
 
@@ -159,8 +146,8 @@ class PoseEstimator:
 
 if __name__ == '__main__':
     PE = PoseEstimator(cv2.imread('../data/map/we_map.png'))
-    #PE.run(cv2.imread('../data/screenshots/we/staging.PNG'))
+    # PE.run(cv2.imread('../data/screenshots/we/staging.PNG'))
     PE.run(cv2.imread('../data/screenshots/we/harvester.PNG'))
-    #PE.run(cv2.imread('../data/screenshots/we/frag_east.PNG'))
+    # PE.run(cv2.imread('../data/screenshots/we/frag_east.PNG'))
 
     cv2.waitKey()
