@@ -105,7 +105,7 @@ class PoseEstimator:
         posEstList = []
 
         for idx, mmPt in enumerate(self.mmMatchedKPList):
-            posEstList.append(np.array(self.refMatchedKPList[idx]) - (np.array(mmPt) * self.scaleRatio))
+            posEstList.append(np.array(self.refMatchedKPList[idx]) - (np.array(mmPt) * p.MM_TO_REF_SCALE_RATIO))
 
         if len(posEstList) == 0:
             pos = [-1, -1]
@@ -152,7 +152,8 @@ class PoseEstimator:
                 del self.crossDistsMM[i]
                 del self.crossDistsRef[i]
 
-        self.estRatio.append(self.crossDistsRef[-1] / self.crossDistsMM[-1])
+        if len(self.crossDistsRef) > 0:
+            self.estRatio.append(self.crossDistsRef[-1] / self.crossDistsMM[-1])
 
         if len(self.estRatio) > 9:
             del self.estRatio[0]

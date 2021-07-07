@@ -10,11 +10,12 @@ ROI_WIDTH = 400
 ROI_HEIGHT = 400
 
 # Video name
-vid_path = 'data/vids/lifeline 4k.mp4'
+vid_path = 'data/vids/wraith 4k.mp4'
+# vid_path = 'D:/Apex/damage vods/4k octane.mp4'
 
 # Read media
 cap = cv2.VideoCapture(vid_path)
-refMap = cv2.imread('data/map/we_map.png')
+refMap = cv2.imread('data/map/olymp_map.png')
 refMapVis = refMap.copy()
 
 # Check if vid is opened successfully
@@ -72,12 +73,31 @@ while cap.isOpened():
                 else:
                     estHistory = np.append(estHistory, [np.array([np.asarray(x1)[0][0], np.asarray(y1)[0][1]])], 0)
             else:
-                print('Measurement is too far from estimation, and will be ignored')
+                print('Measurement is too far from estimation, and will be ignored. Reset counter = ' + str(resetCounter))
                 resetCounter = resetCounter + 1
-                if resetCounter > 20:
-                    KF.initState(int(measHistory[-1][0]), int(measHistory[-1][1]))
-                    print('Resetting KF state')
-                    resetCounter = 0
+                if resetCounter > 10:
+                    # KF = KalmanFilter(1, 0, 0, 1, 5, 5)
+                    # KF.initState(int(measHistory[-1][0]), int(measHistory[-1][1]))
+                    # estHistory = np.append(estHistory, [np.array([int(measHistory[-1][0]),
+                    #                                               int(measHistory[-1][1])])], 0)
+                    # print('Resetting KF state')
+                    # resetCounter = 0
+                    # Draw meas and estimated pose history
+                    for idx, pt in enumerate(np.flip(np.flip(measHistory, 0)[:10], 0)):
+                        cv2.circle(refMapVis, (int(pt[0]), int(pt[1])), 5, (255 * (idx / 10),
+                                                                            255 * (idx / 10),
+                                                                            0), cv2.FILLED)
+
+                    for idx, pt in enumerate(estHistory):
+                        if idx <= 1:
+                            continue
+                        else:
+                            cv2.line(refMapVis, (int(pt[0]), int(pt[1])),
+                                     (int(estHistory[idx - 1][0]), int(estHistory[idx - 1][1])),
+                                     (0, 0, 255 * idx / len(estHistory)), 3)
+
+                    cv2.imwrite('full_pose_est.jpg', refMapVis)
+                    break
 
             # Draw meas and estimated pose history
             for idx, pt in enumerate(np.flip(np.flip(measHistory, 0)[:10], 0)):
