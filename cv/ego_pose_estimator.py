@@ -17,8 +17,8 @@ class PoseEstimator:
 
         # FLANN parameters
         FLANN_INDEX_KDTREE = 1
-        index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
-        search_params = dict(checks=50)  # or pass empty dictionary
+        index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=p.FLANN_NUM_TREES)
+        search_params = dict(checks=p.FLANN_NUM_CHECKS)  # or pass empty dictionary
         self.flann = cv2.FlannBasedMatcher(index_params, search_params)
 
         self.mmKP = None
@@ -74,7 +74,7 @@ class PoseEstimator:
         matchesMask = [[0, 0] for _ in range(len(self.matches))]
         # Ratio test to only select good matches
         for i, (m, n) in enumerate(self.matches):
-            if m.distance < 0.28 * n.distance:
+            if m.distance < p.MATCHING_MAX_RATIO * n.distance:
                 matchesMask[i] = [1, 0]
                 self.maskedMatches.append(m)
 
@@ -86,7 +86,6 @@ class PoseEstimator:
             drawMatches = cv2.drawMatchesKnn(self.refMap, self.refKP, self.miniMap, self.mmKP, self.matches,
                                              None, **draw_params)
             cv2.imshow('matches', cv2.resize(drawMatches, (1000, 1000)))
-            cv2.waitKey(1)
 
         prevXref = 0
 

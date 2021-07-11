@@ -153,6 +153,8 @@ class ApexAnalysisAlgo:
         cv2.imshow('Zoomed Pose', cv2.resize(zoomRefMapVis, (1000, 1000), cv2.INTER_NEAREST))
         # cv2.imshow('RefMapVis', cv2.resize(refMapVis, (1000, 1000)))
 
+        return zoomRefMapVis
+
     def printTimers(self):
         str_EPE = "{:.3f}".format(self.avPoseEstRunTime)
         str_KF = "{:.3f}".format(self.avKalFilRunTime)
@@ -181,7 +183,7 @@ if __name__ == '__main__':
             algo.run(frame)
 
         # Press Q on keyboard to exit
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        if cv2.waitKey() & 0xFF == ord('q'):
             break
 
     # Release when doneq
