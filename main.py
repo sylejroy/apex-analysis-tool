@@ -3,11 +3,8 @@ import numpy as np
 import time
 
 from kalman_filter import KalmanFilter
-
 from cv.ego_pose_estimator import PoseEstimator
 
-ROI_WIDTH = 400
-ROI_HEIGHT = 400
 
 # Video name
 vid_path = 'data/vids/wraith 4k.mp4'

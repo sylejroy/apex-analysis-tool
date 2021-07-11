@@ -161,8 +161,8 @@ class PoseEstimator:
         # Find median of estimated ratio vector
         self.scaleRatio = median(self.estRatio)
 
-        if p.EPE_DBG:
-            print(self.scaleRatio)
+        # if p.EPE_DBG:
+        #     print(self.scaleRatio)
 
 
 if __name__ == '__main__':
