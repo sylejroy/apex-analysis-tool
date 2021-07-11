@@ -8,7 +8,7 @@ from cv.ego_pose_estimator import PoseEstimator
 
 
 def updateTimer(timer, update):
-    timer = timer * 0.8 + update * 0.2
+    timer = timer * 0.0 + update * 1.0
 
     return timer
 
@@ -154,9 +154,9 @@ class ApexAnalysisAlgo:
         # cv2.imshow('RefMapVis', cv2.resize(refMapVis, (1000, 1000)))
 
     def printTimers(self):
-        str_EPE = "{:.2f}".format(self.avPoseEstRunTime)
-        str_KF = "{:.2f}".format(self.avKalFilRunTime)
-        str_Vis = "{:.2f}".format(self.avVisuRunTime)
+        str_EPE = "{:.3f}".format(self.avPoseEstRunTime)
+        str_KF = "{:.3f}".format(self.avKalFilRunTime)
+        str_Vis = "{:.3f}".format(self.avVisuRunTime)
 
         print('EPE: ' + str_EPE + ' KF: ' + str_KF + ' Vis: ' + str_Vis)
 
